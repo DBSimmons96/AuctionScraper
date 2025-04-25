@@ -1,3 +1,4 @@
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -25,16 +26,30 @@ try:
     # Get all <tr> elements within the table
     rows = table.find_elements(By.TAG_NAME, "tr")
 
-    # Array to store the 3rd and 4th <td> values
+    # Array to store the specified <td> values
     cell_values = []
 
-    # Iterate through each row and get the 3rd and 4th <td> values
+    # Iterate through each row and get the specified <td> values
     for row in rows:
         cells = row.find_elements(By.TAG_NAME, "td")
-        if len(cells) > 3:  # Ensure the row has at least 4 <td> elements
-            cell_values.append((cells[2].text, cells[3].text))  # Store as a tuple
+        if len(cells) > 7:  # Ensure the row has at least 8 <td> elements
+            cell_values.append((
+                cells[0].text,  # 1st cell
+                cells[1].text,  # 3rd cell
+                cells[3].text,  # 4th cell
+                cells[4].text,  # 5th cell
+                cells[5].text,  # 6th cell
+                cells[6].text,  # 7th cell
+                cells[7].text   # 8th cell
+            ))
 
-    print(cell_values)
+    # Convert the array to a DataFrame
+    df = pd.DataFrame(cell_values)
+
+    # Export the DataFrame to an Excel file
+    output_path = "C:\\Users\\wally\\Desktop\\UJpwork\\AuctonScraper\\RosenbergInfo.xlsx"
+    df.to_excel(output_path, index=False)
+   # print(f"Data exported to {output_path}")
 finally:
     # Close the WebDriver
     driver.quit()
