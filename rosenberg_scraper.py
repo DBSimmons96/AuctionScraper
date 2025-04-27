@@ -1,4 +1,5 @@
 import pandas as pd
+import openpyxl  # Add this line, not needed but easy way to install what is needed
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -47,9 +48,12 @@ try:
     df = pd.DataFrame(cell_values)
 
     # Export the DataFrame to an Excel file
-    output_path = "C:\\Users\\wally\\Desktop\\UJpwork\\AuctonScraper\\RosenbergInfo.xlsx"
+    output_path = r"C:\Users\wally\Desktop\UJpwork\AuctonScraper\RosenbergInfo.xlsx"
     df.to_excel(output_path, index=False)
-   # print(f"Data exported to {output_path}")
+    print(f"Data exported to {output_path}")
+
+    print(cell_values)
+
 finally:
     # Close the WebDriver
     driver.quit()
