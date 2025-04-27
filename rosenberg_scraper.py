@@ -33,10 +33,11 @@ try:
     # Iterate through each row and get the specified <td> values
     for row in rows:
         cells = row.find_elements(By.TAG_NAME, "td")
-        if len(cells) > 7:  # Ensure the row has at least 8 <td> elements
+        if len(cells) > 8:  # Ensure the row has at least 9 <td> elements
             cell_values.append((
                 cells[0].text,  # 1st cell
-                cells[1].text,  # 3rd cell
+                cells[1].text,  # 2nd cell
+                cells[2].text,  # 3rd cell
                 cells[3].text,  # 4th cell
                 cells[4].text,  # 5th cell
                 cells[5].text,  # 6th cell
@@ -44,8 +45,20 @@ try:
                 cells[7].text   # 8th cell
             ))
 
+    # Define column names
+    column_names = [
+        "Case Number",
+        "Sale Date",
+        "Time",
+        "Property Address",
+        "City",
+        "Jurisdiction",
+        "State",
+        "Opening Bid"
+    ]
+
     # Convert the array to a DataFrame
-    df = pd.DataFrame(cell_values)
+    df = pd.DataFrame(cell_values, columns=column_names)
 
     # Export the DataFrame to an Excel file
     output_path = r"C:\Users\wally\Desktop\UJpwork\AuctonScraper\RosenbergInfo.xlsx"
