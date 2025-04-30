@@ -49,7 +49,7 @@ try:
     column_names = [
         "Case Number",
         "Sale Date",
-        "Time",
+        "Sale Time",
         "Property Address",
         "City",
         "Jurisdiction",
