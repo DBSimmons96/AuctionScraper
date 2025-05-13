@@ -29,49 +29,83 @@ try:
     accept_button = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "input[type='submit'][value='Accept']")))
     driver.execute_script("arguments[0].click();", accept_button)
-
-    # Small delay to let the page update
     time.sleep(2)
 
-    # Wait for and get the first element with class "sdcolname"
-    file_number_header = wait.until(EC.presence_of_element_located(
-        (By.CLASS_NAME, "sdcolname")))
+    # List to store all data
+    all_data = []
 
-    # Get the first file number TD within the sale display table
-    file_number = wait.until(EC.presence_of_element_located(
-        (By.CSS_SELECTOR, ".saledisplaytable td:first-child")))
-    # Wait for sale display tables to be present
+    # Wait for tables
     tables = wait.until(EC.presence_of_all_elements_located(
         (By.CLASS_NAME, "saledisplaytable")))
 
-    # Loop through each table
-    for table_index, table in enumerate(tables, 1):
-        print(f"\nTable {table_index}")
-        print("=" * 50)
+    for table in tables:
+        # Initialize record dictionary
+        record_data = {
+            'County': '',
+            'Address': '',
+            'City': '',
+            'State': 'MD',
+            'Zip': '',
+            'Auction Date': '',
+            'Auction Time': '',
+            'Owner First Name': '',
+            'Owner Last Name': '',
+            'Owner Address': '',
+            'Owner City': '',
+            'Owner State': '',
+            'Owner Zip': '',
+            'Auction Website': 'matlsales.orlans.com',
+            'Notes': '',
+            'Listing': ''
+        }
 
-        # Find all tbody elements in this table
-        tbodies = table.find_elements(By.TAG_NAME, "tbody")
+        # Get all rows
+        rows = table.find_elements(By.TAG_NAME, "tr")
+        full_text = []
 
-        # Loop through each tbody
-        for tbody_index, tbody in enumerate(tbodies, 1):
-            print(f"\nBody {tbody_index}:")
-            print("-" * 30)
+        for row in rows:
+            cells = row.find_elements(By.TAG_NAME, "td")
+            if cells:
+                row_text = " | ".join([cell.text.strip() for cell in cells if cell.text.strip()])
+                if row_text:
+                    full_text.append(row_text)
 
-            # Get all rows in this tbody
-            rows = tbody.find_elements(By.TAG_NAME, "tr")
+                    # Try to extract address and location info
+                    if any(word in row_text.lower() for word in ['street', 'road', 'avenue', 'lane', 'drive', 'court']):
+                        record_data['Address'] = row_text.split('|')[0].strip()
+                        if 'Maryland' in row_text:
+                            parts = row_text.split('Maryland')
+                            if len(parts) > 1:
+                                record_data['Zip'] = parts[1].strip().split()[0]
+                                city_part = parts[0].split('|')[-1].strip()
+                                record_data['City'] = city_part
 
-            # Process each row
-            for row in rows:
-                # Get all cells in the row
-                cells = row.find_elements(By.TAG_NAME, "td")
-                if cells:
-                    row_text = " | ".join([cell.text.strip() for cell in cells if cell.text.strip()])
-                    if row_text:
-                        print(row_text)
+        # Store full listing text
+        record_data['Listing'] = '\n'.join(full_text)
+
+        if record_data['Address']:  # Only append if we found an address
+            all_data.append(record_data)
+
+    # Create DataFrame
+    df = pd.DataFrame(all_data)
+
+    # Reorder columns
+    columns = [
+        'County', 'Address', 'City', 'State', 'Zip',
+        'Auction Date', 'Auction Time',
+        'Owner First Name', 'Owner Last Name',
+        'Owner Address', 'Owner City', 'Owner State', 'Owner Zip',
+        'Auction Website', 'Notes', 'Listing'
+    ]
+    df = df[columns]
+
+    # Export to Excel
+    output_path = r"C:\Users\wally\Desktop\UJpwork\AuctonScraper\MatlSalesInfo.xlsx"
+    df.to_excel(output_path, index=False)
+    print(f"\nData successfully exported to {output_path}")
 
 except Exception as e:
     print(f"An error occurred: {e}")
-    print(f"Error details: {str(e)}")
 
 finally:
     driver.quit()
