@@ -1,4 +1,6 @@
 import pandas as pd
+import sys
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -15,6 +17,30 @@ chrome_options.add_argument("--headless")
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service, options=chrome_options)
 wait = WebDriverWait(driver, 10)
+
+# Create a log file with timestamp
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+log_path = rf"C:\Users\wally\Desktop\UJpwork\AuctonScraper\HWest_log_{timestamp}.txt"
+
+
+# Create custom print function that writes to both console and file
+class Logger:
+    def __init__(self, log_file):
+        self.terminal = sys.stdout
+        self.log_file = open(log_file, 'w', encoding='utf-8')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log_file.write(message)
+        self.log_file.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.log_file.flush()
+
+
+# Redirect stdout to our custom logger
+sys.stdout = Logger(log_path)
 
 try:
     url = "https://app.hwestauctions.com/"
@@ -120,5 +146,9 @@ try:
 except Exception as e:
     print(f"An error occurred: {e}")
 
+
 finally:
     driver.quit()
+    # Restore original stdout
+    sys.stdout = sys.__stdout__
+    print(f"Log file saved to {log_path}")
