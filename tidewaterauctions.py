@@ -11,7 +11,8 @@ from selenium.webdriver.support import expected_conditions as EC
 
 # Create a log file with timestamp
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-log_path = rf"C:\Users\wally\Desktop\UJpwork\AuctonScraper\HWest_log_{timestamp}.txt"
+log_path = rf"C:\Users\wally\Desktop\UJpwork\AuctonScraper\Tidewater_log_{timestamp}.txt"
+
 
 # Create custom print function that writes to both console and file
 class Logger:
@@ -28,6 +29,7 @@ class Logger:
         self.terminal.flush()
         self.log_file.flush()
 
+
 # Redirect stdout to our custom logger
 sys.stdout = Logger(log_path)
 
@@ -35,68 +37,103 @@ sys.stdout = Logger(log_path)
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 
-# Use ChromeDriverManager to automatically manage the driver
+# Initialize driver only once
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service, options=chrome_options)
+wait = WebDriverWait(driver, 20)  # Increased timeout to 20 seconds
 
 try:
-    # URL to scrape
     url = "https://www.tidewaterauctions.com/upcoming-real-estate-auctions"
     driver.get(url)
+    print("Accessing website...\n")
+
+    # Wait for page to load
+    print("Waiting for page to load...\n")
+    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "us-block-header")))
 
     print("Scraping sale items...\n")
-
-    # List to store all records
     all_data = []
 
-    # Wait for elements to be present and find all us-sale-item elements
-    wait = WebDriverWait(driver, 10)
-    sale_items = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "us-sale-item")))
+    # Find all county sections directly
+    county_sections = driver.find_elements(By.CLASS_NAME, "us-block-header")
 
-    for i, item in enumerate(sale_items, 1):
-        # Initialize record dictionary
-        record_data = {
-            'County': '',
-            'Address': '',
-            'City': '',
-            'State': 'MD',
-            'Zip': '',
-            'Auction Date': '',
-            'Auction Time': '',
-            'Owner First Name': '',
-            'Owner Last Name': '',
-            'Owner Address': '',
-            'Owner City': '',
-            'Owner State': '',
-            'Owner Zip': '',
-            'Auction Website': 'tidewaterauctions.com',
-            'Notes': '',
-            'Listing': ''
-        }
+    for section in county_sections:
+        try:
+            # Extract county name
+            county_element = section.find_element(By.CLASS_NAME, "us-countyname")
+            county_name = county_element.text.strip()
+            print(f"\nProcessing {county_name}...")
 
-        # Get text content
-        text = item.text
-        record_data['Listing'] = text
+            # Find sale items - looking in parent element and following siblings
+            parent = section.find_element(By.XPATH, "./..")
+            sale_items = parent.find_elements(By.CLASS_NAME, "us-sale-item")
 
-        # Process text line by line
-        lines = text.split('\n')
-        for line in lines:
-            # Try to extract address and location info
-            if any(word in line.lower() for word in ['street', 'road', 'avenue', 'lane', 'drive', 'court', 'way', 'circle']):
-                record_data['Address'] = line.strip()
-                if 'Maryland' in line:
-                    parts = line.split('Maryland')
-                    if len(parts) > 1:
-                        # Get ZIP
-                        zip_part = parts[1].strip()
-                        record_data['Zip'] = zip_part.strip(' ,')
-                        # Get City
-                        city_part = parts[0].split(',')[-1].strip()
-                        record_data['City'] = city_part
+            for i, item in enumerate(sale_items, 1):
+                record_data = {
+                    'County': county_name,
+                    'Address': '',
+                    'City': '',
+                    'State': 'MD',
+                    'Zip': '',
+                    'Auction Date': '',
+                    'Auction Time': '',
+                    'Owner First Name': '',
+                    'Owner Last Name': '',
+                    'Owner Address': '',
+                    'Owner City': '',
+                    'Owner State': '',
+                    'Owner Zip': '',
+                    'Auction Website': 'tidewaterauctions.com',
+                    'Notes': '',
+                    'Listing': ''
+                }
 
-        if record_data['Address']:  # Only append if we found an address
-            all_data.append(record_data)
-            print(f"Processed Sale Item #{i}")
+                # Get text content
+                text = item.text
+                record_data['Listing'] = text
+
+                # Process text line by line
+                lines = text.split('\n')
+                for line in lines:
+                    line_lower = line.lower()
+                    street_types = ['street', 'road', 'avenue', 'lane', 'drive', 'court', 'way', 'circle']
+
+                    if any(word in line_lower for word in street_types):
+                        # Find the first occurrence of any street type and truncate there
+                        end_pos = len(line)
+                        for street_type in street_types:
+                            pos = line_lower.find(street_type)
+                            if pos != -1:
+                                current_end = pos + len(street_type)
+                                if current_end < end_pos:
+                                    end_pos = current_end
+
+                        # Extract clean address up to the street type
+                        clean_address = line[:end_pos].strip()
+                        record_data['Address'] = clean_address
+
+                        # Handle ZIP and city if MD is present
+                        if 'MD' in line:
+                            md_pos = line.find('MD')
+                            # Extract ZIP after MD
+                            after_md = line[md_pos + 2:].strip(' ,')
+                            zip_code = ''.join(filter(str.isdigit, after_md))
+                            if len(zip_code) >= 5:
+                                record_data['Zip'] = zip_code[:5]
+
+                            # Extract city before MD
+                            before_md = line[:md_pos].strip()
+                            if ',' in before_md:
+                                city = before_md.split(',')[-1].strip()
+                                record_data['City'] = city
+
+                if record_data['Address']:
+                    all_data.append(record_data)
+                    print(f"Processed {county_name} Sale Item #{i}")
+
+        except Exception as e:
+            print(f"Error processing section: {str(e)}")
+            continue
 
     # Create DataFrame
     df = pd.DataFrame(all_data)
@@ -111,13 +148,21 @@ try:
     ]
     df = df[columns]
 
-    # Export to Excel
-    output_path = r"C:\Users\wally\Desktop\UJpwork\AuctonScraper\TideWaterAuctionsInfo.xlsx"
-    df.to_excel(output_path, index=False)
-    print(f"\nData successfully exported to {output_path}")
+    # Export to Excel with timestamp
+    output_path = rf"C:\Users\wally\Desktop\UJpwork\AuctonScraper\TideWaterAuctionsInfo_{timestamp}.xlsx"
+    try:
+        df.to_excel(output_path, index=False)
+        print(f"\nData successfully exported to {output_path}")
+    except PermissionError:
+        alt_path = rf"C:\Users\wally\Desktop\UJpwork\AuctonScraper\TideWaterAuctionsInfo_new.xlsx"
+        df.to_excel(alt_path, index=False)
+        print(f"\nCouldn't write to original path. Data exported to {alt_path}")
 
 except Exception as e:
     print(f"An error occurred: {e}")
 
 finally:
     driver.quit()
+    # Restore original stdout
+    sys.stdout = sys.__stdout__
+    print(f"Log file saved to {log_path}")
