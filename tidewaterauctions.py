@@ -54,6 +54,9 @@ try:
     print("Scraping sale items...\n")
     all_data = []
 
+    # Define street types list
+    street_types = ['street', 'road', 'avenue', 'lane', 'drive', 'court', 'way', 'circle']
+
     # Find all county sections directly
     county_sections = driver.find_elements(By.CLASS_NAME, "us-block-header")
 
@@ -95,37 +98,26 @@ try:
                 # Process text line by line
                 lines = text.split('\n')
                 for line in lines:
-                    line_lower = line.lower()
-                    street_types = ['street', 'road', 'avenue', 'lane', 'drive', 'court', 'way', 'circle']
+                    # Look for address lines containing MD
+                    if 'MD' in line and any(st in line.lower() for st in street_types):
+                        # Split by comma to separate address, city, and state+zip
+                        parts = [part.strip() for part in line.split(',')]
 
-                    if any(word in line_lower for word in street_types):
-                        # Find the first occurrence of any street type and truncate there
-                        end_pos = len(line)
-                        for street_type in street_types:
-                            pos = line_lower.find(street_type)
-                            if pos != -1:
-                                current_end = pos + len(street_type)
-                                if current_end < end_pos:
-                                    end_pos = current_end
-
-                        # Extract clean address up to the street type
-                        clean_address = line[:end_pos].strip()
-                        record_data['Address'] = clean_address
-
-                        # Handle ZIP and city if MD is present
-                        if 'MD' in line:
-                            md_pos = line.find('MD')
-                            # Extract ZIP after MD
-                            after_md = line[md_pos + 2:].strip(' ,')
-                            zip_code = ''.join(filter(str.isdigit, after_md))
-                            if len(zip_code) >= 5:
-                                record_data['Zip'] = zip_code[:5]
-
-                            # Extract city before MD
-                            before_md = line[:md_pos].strip()
-                            if ',' in before_md:
-                                city = before_md.split(',')[-1].strip()
-                                record_data['City'] = city
+                        # First part should be the street address
+                        if len(parts) >= 2:
+                            record_data['Address'] = parts[0]
+                            # Second part should be the city
+                            if len(parts) >= 2:
+                                record_data['City'] = parts[1].strip()
+                            # Last part should contain MD and ZIP
+                            if len(parts) >= 3:
+                                last_part = parts[-1].strip()
+                                if 'MD' in last_part:
+                                    # Extract ZIP after MD
+                                    zip_part = last_part.split('MD')[1].strip()
+                                    zip_code = ''.join(filter(str.isdigit, zip_part))
+                                    if len(zip_code) >= 5:
+                                        record_data['Zip'] = zip_code[:5]
 
                 if record_data['Address']:
                     all_data.append(record_data)
